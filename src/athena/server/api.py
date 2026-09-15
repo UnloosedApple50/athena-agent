@@ -13,6 +13,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, WebSocket, WebSocketDisco
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from athena.db.database import Database, db
@@ -22,6 +23,17 @@ from athena.models.config import get_settings
 from athena.server.websocket import ws_manager, WebSocketHandler
 from athena.utils.logger import get_logger
 from athena.utils.security import sanitize_input, validate_module, generate_session_id
+
+# Import new modules
+from athena.monitor.system import system_monitor
+from athena.monitor.metrics import metrics_tracker
+from athena.integrations.webhooks import webhook_manager
+from athena.integrations.api_keys import api_key_manager
+from athena.integrations.connectors import connector_manager
+from athena.integrations.oauth import oauth_manager
+from athena.training.feedback import feedback_manager
+from athena.training.replay import replay_manager
+from athena.training.adaptation import adaptation_manager
 
 logger = get_logger("server")
 
@@ -74,7 +86,43 @@ class HealthResponse(BaseModel):
     db_connected: bool
     uptime_seconds: float
     memory_count: int
-    version: str = "1.0.0"
+    version: str = "2.0.0"
+
+
+class SettingsResponse(BaseModel):
+    llm_base_url: str
+    llm_model: str
+    host: str
+    port: int
+    log_level: str
+
+
+# === New Request Models ===
+
+class WebhookRequest(BaseModel):
+    url: str = Field(..., description="Webhook endpoint URL")
+    events: list[str] = Field(..., description="Events to subscribe to")
+
+
+class APIKeyRequest(BaseModel):
+    name: str = Field(..., description="Key name")
+    scopes: list[str] = Field(..., description="Permission scopes")
+    rate_limit: int = Field(100, description="Requests per minute")
+
+
+class TrainingFeedbackRequest(BaseModel):
+    memory_id: int
+    rating: int = Field(..., ge=1, le=5, description="Rating 1-5")
+    correction: Optional[str] = None
+    comment: Optional[str] = None
+    category: str = "general"
+
+
+class ConnectorRequest(BaseModel):
+    webhook_url: Optional[str] = None
+    bot_token: Optional[str] = None
+    channel_id: Optional[str] = None
+    api_key: Optional[str] = None
 
 
 # === Router for API v1 ===
@@ -271,6 +319,250 @@ async def provide_feedback(request: Request, memory_id: int, body: FeedbackReque
     return {"status": "received"}
 
 
+# === New Endpoints: System Metrics ===
+
+@router.get("/system/metrics")
+async def get_system_metrics():
+    """Get real-time system metrics (CPU, RAM, disk, network)."""
+    metrics = system_monitor.get_system_metrics()
+    return metrics.to_dict()
+
+
+@router.get("/system/info")
+async def get_system_info():
+    """Get system information."""
+    metrics = system_monitor.get_system_metrics()
+    return {
+        "platform": metrics.platform_info,
+        "uptime_seconds": metrics.uptime_seconds,
+        "process_count": metrics.process_count,
+    }
+
+
+# === New Endpoints: Token Throughput ===
+
+@router.get("/metrics/throughput")
+async def get_throughput_metrics():
+    """Get token throughput metrics."""
+    return metrics_tracker.to_dict()
+
+
+@router.get("/metrics/throughput/history")
+async def get_throughput_history(hours: int = 24):
+    """Get historical throughput metrics."""
+    return await metrics_tracker.get_historical_stats(hours=hours)
+
+
+# === New Endpoints: Integrations ===
+
+@router.get("/integrations")
+async def list_integrations():
+    """List all configured integrations."""
+    webhooks = await webhook_manager.list_webhooks()
+    api_keys = await api_key_manager.list_keys()
+    connectors = connector_manager.list_connectors()
+    
+    return {
+        "webhooks": [
+            {
+                "id": w.id,
+                "url": w.url,
+                "events": w.events,
+                "active": w.active,
+                "created_at": w.created_at,
+            }
+            for w in webhooks
+        ],
+        "api_keys": [
+            {
+                "id": k.id,
+                "name": k.name,
+                "prefix": k.key_prefix,
+                "scopes": k.scopes,
+                "active": k.active,
+                "created_at": k.created_at,
+            }
+            for k in api_keys
+        ],
+        "connectors": connectors,
+    }
+
+
+@router.get("/integrations/webhooks")
+async def list_webhooks():
+    """List registered webhooks."""
+    webhooks = await webhook_manager.list_webhooks()
+    return [
+        {
+            "id": w.id,
+            "url": w.url,
+            "events": w.events,
+            "active": w.active,
+            "created_at": w.created_at,
+        }
+        for w in webhooks
+    ]
+
+
+@router.post("/integrations/webhooks")
+async def register_webhook(body: WebhookRequest):
+    """Register a new webhook."""
+    try:
+        webhook = await webhook_manager.register(url=body.url, events=body.events)
+        return {
+            "id": webhook.id,
+            "url": webhook.url,
+            "events": webhook.events,
+            "secret": webhook.secret,
+            "status": "registered",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/integrations/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: str):
+    """Remove a webhook."""
+    success = await webhook_manager.unregister(webhook_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"status": "deleted"}
+
+
+@router.post("/integrations/api-keys")
+async def generate_api_key(body: APIKeyRequest):
+    """Generate a new API key."""
+    try:
+        full_key, api_key = await api_key_manager.create_key(
+            name=body.name,
+            scopes=body.scopes,
+            rate_limit=body.rate_limit,
+        )
+        return {
+            "key": full_key,
+            "id": api_key.id,
+            "name": api_key.name,
+            "prefix": api_key.key_prefix,
+            "scopes": api_key.scopes,
+            "created_at": api_key.created_at,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/integrations/api-keys/{key_id}")
+async def revoke_api_key(key_id: str):
+    """Revoke an API key."""
+    success = await api_key_manager.revoke_key(key_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"status": "revoked"}
+
+
+@router.post("/integrations/{service}/connect")
+async def connect_service(service: str, body: ConnectorRequest):
+    """Connect an external service."""
+    from athena.integrations.connectors import ConnectorConfig
+    
+    try:
+        config = ConnectorConfig(
+            service=service,
+            webhook_url=body.webhook_url or "",
+            bot_token=body.bot_token or "",
+            channel_id=body.channel_id or "",
+        )
+        connector = connector_manager.create_connector(config)
+        return {"service": service, "status": "connected"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/integrations/{service}")
+async def disconnect_service(service: str):
+    """Disconnect an external service."""
+    success = connector_manager.remove_connector(service)
+    if not success:
+        raise HTTPException(status_code=404, detail="Service not connected")
+    return {"status": "disconnected"}
+
+
+# === New Endpoints: Training ===
+
+@router.post("/training/feedback")
+async def submit_training_feedback(body: TrainingFeedbackRequest):
+    """Submit feedback on a response."""
+    entry = await feedback_manager.submit_feedback(
+        memory_id=body.memory_id,
+        rating=body.rating,
+        correction=body.correction,
+        comment=body.comment,
+        category=body.category,
+    )
+    return entry.to_dict()
+
+
+@router.get("/training/history")
+async def get_training_history(
+    session_id: Optional[str] = None,
+    module: Optional[str] = None,
+    limit: int = 50,
+):
+    """Get feedback history."""
+    return await feedback_manager.get_feedback_history(session_id, module, limit)
+
+
+@router.get("/training/stats")
+async def get_training_stats():
+    """Get training statistics."""
+    return await feedback_manager.get_feedback_stats()
+
+
+@router.post("/training/adapt")
+async def trigger_adaptation():
+    """Trigger adaptation based on feedback."""
+    # Get all feedback
+    feedback = await feedback_manager.get_feedback_history(limit=1000)
+    
+    # Analyze and generate rules
+    rules = await adaptation_manager.analyze_feedback(feedback)
+    
+    # Apply adaptations
+    result = await adaptation_manager.apply_adaptations()
+    
+    return {
+        "rules_generated": len(rules),
+        "adaptations": result,
+        "stats": adaptation_manager.get_stats(),
+    }
+
+
+@router.post("/training/replay/{session_id}")
+async def replay_session(session_id: str):
+    """Replay a session's interactions."""
+    results = await replay_manager.replay_session(session_id)
+    return {
+        "session_id": session_id,
+        "replayed": len(results),
+        "improved": sum(1 for r in results if r.improved),
+    }
+
+
+# === Settings Endpoint ===
+
+@router.get("/settings")
+async def get_settings_endpoint():
+    """Get current settings."""
+    from athena.models.config import get_settings as get_config_settings
+    settings = get_config_settings()
+    return SettingsResponse(
+        llm_base_url=settings.llm_base_url,
+        llm_model=settings.llm_model,
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level,
+    )
+
+
 # === Application Factory ===
 
 @asynccontextmanager
@@ -279,7 +571,7 @@ async def lifespan(app: FastAPI):
     global start_time
 
     settings = get_settings()
-    logger.info("Starting Athena Agent...")
+    logger.info("Starting Athena Agent v2.0...")
 
     # Initialize database
     await db.initialize()
@@ -306,6 +598,15 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     start_time = time.time()
 
+    # Set database for managers
+    metrics_tracker._db = db
+    webhook_manager._db = db
+    api_key_manager._db = db
+    oauth_manager._db = db
+    feedback_manager._db = db
+    replay_manager._db = db
+    adaptation_manager._db = db
+
     logger.info(f"Athena Agent ready on port {settings.port}")
 
     yield
@@ -314,6 +615,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Athena Agent...")
     await llm_client.close()
     await db.close()
+    await webhook_manager.close()
+    await connector_manager.close_all()
 
 
 # Mount static files and templates
@@ -326,8 +629,17 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Athena Agent",
         description="Specialized Language Memory Agent for Sales & Trading",
-        version="1.0.0",
+        version="2.0.0",
         lifespan=lifespan,
+    )
+
+    # CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # Include API router

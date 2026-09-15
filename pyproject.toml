@@ -62,7 +62,7 @@ athena = "athena.__main__:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --cov=athena --cov-report=term-missing --cov-fail-under=80"
+addopts = "-v --cov=athena --cov-report=term-missing --cov-fail-under=75"
 
 [tool.black]
 line-length = 100

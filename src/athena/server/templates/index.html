@@ -3,146 +3,606 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athena Agent — Sales & Trading SLM</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>Athena Agent — Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
+    <div class="app">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <span class="logo-icon">&#x1F31F;</span>
+                    <span class="logo-icon">✦</span>
                     <span class="logo-text">Athena</span>
                 </div>
-                <p class="subtitle">Sales & Trading Agent</p>
+                <span class="version">v2.0</span>
             </div>
 
-            <nav class="module-nav">
-                <button class="module-btn active" data-module="general">
-                    <span class="module-icon">&#x1F4C8;</span>
-                    General
+            <div class="nav-section">
+                <span class="nav-section-title">Main</span>
+                <button class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Dashboard</span>
                 </button>
-                <button class="module-btn" data-module="sales">
-                    <span class="module-icon">&#x1F4B0;</span>
-                    Sales
+                <button class="nav-item" data-page="chat">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">Chat</span>
                 </button>
-                <button class="module-btn" data-module="trading">
-                    <span class="module-icon">&#x1F4CA;</span>
-                    Trading
-                </button>
-            </nav>
+            </div>
 
-            <div class="sidebar-stats">
-                <div class="stat-item">
-                    <span class="stat-label">Session</span>
-                    <span class="stat-value" id="session-status">Connecting...</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">LLM Status</span>
-                    <span class="stat-value" id="llm-status">Unknown</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Memories</span>
-                    <span class="stat-value" id="memory-count">—</span>
-                </div>
+            <div class="nav-section">
+                <span class="nav-section-title">Data</span>
+                <button class="nav-item" data-page="memory">
+                    <span class="nav-icon">🧠</span>
+                    <span class="nav-label">Memory</span>
+                </button>
+                <button class="nav-item" data-page="decisions">
+                    <span class="nav-icon">⚖️</span>
+                    <span class="nav-label">Decisions</span>
+                </button>
+                <button class="nav-item" data-page="knowledge">
+                    <span class="nav-icon">📚</span>
+                    <span class="nav-label">Knowledge</span>
+                </button>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Configuration</span>
+                <button class="nav-item" data-page="integrations">
+                    <span class="nav-icon">🔗</span>
+                    <span class="nav-label">Integrations</span>
+                </button>
+                <button class="nav-item" data-page="training">
+                    <span class="nav-icon">🎓</span>
+                    <span class="nav-label">Training</span>
+                </button>
+                <button class="nav-item" data-page="system">
+                    <span class="nav-icon">🖥️</span>
+                    <span class="nav-label">System</span>
+                </button>
+                <button class="nav-item" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </button>
             </div>
 
             <div class="sidebar-footer">
-                <p>v1.0.0 | CPU-Only</p>
+                <div class="status-indicator">
+                    <span class="status-dot" id="ws-status-dot"></span>
+                    <span id="ws-status-text">Connecting...</span>
+                </div>
+                <div class="user-info">
+                    <span id="uptime-display">--:--:--</span>
+                </div>
             </div>
-        </aside>
+        </nav>
 
-        <!-- Main Content -->
+        <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Chat Area -->
-            <div class="chat-container">
-                <div class="chat-header">
-                    <h2 id="chat-title">General Assistant</h2>
-                    <div class="header-actions">
-                        <button class="btn-icon" id="clear-chat" title="Clear Chat">&#x2715;</button>
-                        <button class="btn-icon" id="new-session" title="New Session">&#x2795;</button>
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="menu-toggle" id="menu-toggle">☰</button>
+                    <h1 class="page-title" id="page-title">Dashboard</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-box">
+                        <input type="text" id="global-search" placeholder="Search...">
+                    </div>
+                    <button class="icon-btn" id="notifications-btn" title="Notifications">
+                        🔔
+                        <span class="badge" id="notification-badge" style="display:none">0</span>
+                    </button>
+                    <button class="icon-btn" id="refresh-btn" title="Refresh Data">↻</button>
+                </div>
+            </header>
+
+            <!-- Page Content Container -->
+            <div class="page-content" id="page-content">
+                <!-- Dashboard Page -->
+                <div class="page active" id="page-dashboard">
+                    <div class="dashboard-grid">
+                        <!-- System Stats Cards -->
+                        <div class="card stat-card" id="cpu-card">
+                            <div class="card-header">
+                                <span class="card-icon">⚡</span>
+                                <span class="card-title">CPU Usage</span>
+                            </div>
+                            <div class="stat-value" id="cpu-percent">--%</div>
+                            <div class="stat-detail" id="cpu-cores">-- cores</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="cpu-progress"></div>
+                            </div>
+                        </div>
+
+                        <div class="card stat-card" id="ram-card">
+                            <div class="card-header">
+                                <span class="card-icon">💾</span>
+                                <span class="card-title">Memory</span>
+                            </div>
+                            <div class="stat-value" id="ram-percent">--%</div>
+                            <div class="stat-detail" id="ram-detail">-- / --</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="ram-progress"></div>
+                            </div>
+                        </div>
+
+                        <div class="card stat-card" id="disk-card">
+                            <div class="card-header">
+                                <span class="card-icon">💿</span>
+                                <span class="card-title">Disk</span>
+                            </div>
+                            <div class="stat-value" id="disk-percent">--%</div>
+                            <div class="stat-detail" id="disk-detail">-- / --</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="disk-progress"></div>
+                            </div>
+                        </div>
+
+                        <div class="card stat-card" id="network-card">
+                            <div class="card-header">
+                                <span class="card-icon">🌐</span>
+                                <span class="card-title">Network</span>
+                            </div>
+                            <div class="stat-value" id="net-throughput">--</div>
+                            <div class="stat-detail" id="net-detail">↓ -- ↑ --</div>
+                            <div class="net-bars">
+                                <div class="net-bar-container">
+                                    <span class="net-label">RX</span>
+                                    <div class="net-bar"><div class="net-bar-fill" id="net-rx-bar"></div></div>
+                                </div>
+                                <div class="net-bar-container">
+                                    <span class="net-label">TX</span>
+                                    <div class="net-bar"><div class="net-bar-fill" id="net-tx-bar"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Token Throughput Chart -->
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <span class="card-icon">📈</span>
+                                <span class="card-title">Token Throughput</span>
+                                <span class="badge live-badge">LIVE</span>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="throughput-chart"></canvas>
+                            </div>
+                            <div class="chart-stats">
+                                <span id="tps-value">-- tok/s</span>
+                                <span id="total-tokens">-- total</span>
+                                <span id="avg-latency">-- ms avg</span>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="card activity-card">
+                            <div class="card-header">
+                                <span class="card-icon">📋</span>
+                                <span class="card-title">Recent Activity</span>
+                            </div>
+                            <div class="activity-list" id="activity-list">
+                                <div class="activity-item">Loading...</div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Stats -->
+                        <div class="card quick-stats-card">
+                            <div class="card-header">
+                                <span class="card-icon">⚡</span>
+                                <span class="card-title">Quick Stats</span>
+                            </div>
+                            <div class="quick-stats-grid">
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="stat-sessions">--</span>
+                                    <span class="quick-stat-label">Sessions</span>
+                                </div>
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="stat-memories">--</span>
+                                    <span class="quick-stat-label">Memories</span>
+                                </div>
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="stat-decisions">--</span>
+                                    <span class="quick-stat-label">Decisions</span>
+                                </div>
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="stat-knowledge">--</span>
+                                    <span class="quick-stat-label">Knowledge</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="chat-messages" id="chat-messages">
-                    <div class="message assistant-message">
-                        <div class="message-avatar">&#x1F31F;</div>
-                        <div class="message-content">
-                            <p>Hello! I'm <strong>Athena</strong>, your Specialized Language Memory Agent for Sales & Trading. I can help you with:</p>
-                            <ul>
-                                <li><strong>Sales Strategy</strong> — closing techniques, negotiation tactics, pipeline management</li>
-                                <li><strong>Trading Analysis</strong> — risk management, technical analysis, portfolio strategy</li>
-                                <li><strong>General Advisory</strong> — business decisions, financial concepts</li>
-                            </ul>
-                            <p>What can I help you with today?</p>
-                            <span class="confidence-badge">Ready</span>
+                <!-- Chat Page -->
+                <div class="page" id="page-chat">
+                    <div class="chat-layout">
+                        <div class="chat-sidebar">
+                            <div class="module-selector">
+                                <label>Module Context</label>
+                                <select id="chat-module">
+                                    <option value="general">General Assistant</option>
+                                    <option value="sales">Sales Strategist</option>
+                                    <option value="trading">Trading Analyst</option>
+                                </select>
+                            </div>
+                            <div class="session-list" id="session-list">
+                                <div class="session-item active">
+                                    <span class="session-name">Current Session</span>
+                                    <span class="session-meta">0 messages</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary" id="new-chat-btn">+ New Chat</button>
+                        </div>
+                        <div class="chat-main">
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="welcome-message">
+                                    <div class="welcome-icon">✦</div>
+                                    <h2>Welcome to Athena</h2>
+                                    <p>Ask about sales strategies, trading analysis, or general advisory.</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-toolbar">
+                                    <button class="toolbar-btn" id="attach-btn" title="Attach">📎</button>
+                                    <button class="toolbar-btn" id="voice-btn" title="Voice">🎤</button>
+                                </div>
+                                <div class="chat-input-wrapper">
+                                    <textarea id="chat-input" placeholder="Type your message... (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+                                    <button class="send-btn" id="send-btn">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="input-meta">
+                                    <span id="input-count">0/10000</span>
+                                    <span id="llm-status-badge">LLM: Checking...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="chat-input-container">
-                    <form id="chat-form">
-                        <div class="input-wrapper">
-                            <textarea
-                                id="chat-input"
-                                placeholder="Ask about sales strategies, trading analysis, or general advisory..."
-                                rows="2"
-                                autocomplete="off"
-                            ></textarea>
-                            <button type="submit" class="send-btn" id="send-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                </svg>
-                            </button>
+                <!-- Memory Page -->
+                <div class="page" id="page-memory">
+                    <div class="memory-layout">
+                        <div class="memory-filters">
+                            <div class="filter-group">
+                                <label>Type</label>
+                                <select id="memory-type-filter">
+                                    <option value="all">All</option>
+                                    <option value="episodic">Episodic</option>
+                                    <option value="semantic">Semantic</option>
+                                    <option value="working">Working</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Module</label>
+                                <select id="memory-module-filter">
+                                    <option value="all">All</option>
+                                    <option value="general">General</option>
+                                    <option value="sales">Sales</option>
+                                    <option value="trading">Trading</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Search</label>
+                                <input type="text" id="memory-search" placeholder="Search memories...">
+                            </div>
+                            <button class="btn btn-secondary" id="refresh-memories">Refresh</button>
                         </div>
-                        <div class="input-hint">
-                            <span id="char-count">0/10000</span>
-                            <span class="module-indicator">Module: <strong id="current-module">General</strong></span>
+                        <div class="memory-list" id="memory-list">
+                            <div class="loading-spinner">Loading memories...</div>
                         </div>
-                    </form>
+                    </div>
+                </div>
+
+                <!-- Decisions Page -->
+                <div class="page" id="page-decisions">
+                    <div class="decisions-layout">
+                        <div class="decisions-header">
+                            <h2>Decision History</h2>
+                            <div class="decision-filters">
+                                <select id="decision-module-filter">
+                                    <option value="all">All Modules</option>
+                                    <option value="general">General</option>
+                                    <option value="sales">Sales</option>
+                                    <option value="trading">Trading</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="decisions-list" id="decisions-list">
+                            <div class="loading-spinner">Loading decisions...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Page -->
+                <div class="page" id="page-knowledge">
+                    <div class="knowledge-layout">
+                        <div class="knowledge-header">
+                            <h2>Knowledge Base</h2>
+                            <button class="btn btn-primary" id="add-knowledge-btn">+ Add Knowledge</button>
+                        </div>
+                        <div class="knowledge-filters">
+                            <input type="text" id="knowledge-search" placeholder="Search knowledge...">
+                            <select id="knowledge-category-filter">
+                                <option value="all">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="knowledge-grid" id="knowledge-grid">
+                            <div class="loading-spinner">Loading knowledge...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integrations Page -->
+                <div class="page" id="page-integrations">
+                    <div class="integrations-layout">
+                        <div class="integration-section">
+                            <h3>Webhooks</h3>
+                            <p>Register webhooks to receive events when chat, decisions, or memory changes occur.</p>
+                            <div class="integration-form">
+                                <input type="text" id="webhook-url" placeholder="https://your-webhook-url.com">
+                                <select id="webhook-events" multiple>
+                                    <option value="chat.created">Chat Created</option>
+                                    <option value="chat.response">Chat Response</option>
+                                    <option value="decision.made">Decision Made</option>
+                                    <option value="memory.created">Memory Created</option>
+                                    <option value="memory.updated">Memory Updated</option>
+                                    <option value="knowledge.added">Knowledge Added</option>
+                                    <option value="training.feedback">Training Feedback</option>
+                                    <option value="system.alert">System Alert</option>
+                                </select>
+                                <button class="btn btn-primary" id="register-webhook-btn">Register Webhook</button>
+                            </div>
+                            <div id="webhooks-list" class="integration-list"></div>
+                        </div>
+
+                        <div class="integration-section">
+                            <h3>API Keys</h3>
+                            <p>Generate API keys for programmatic access to Athena.</p>
+                            <div class="integration-form">
+                                <input type="text" id="api-key-name" placeholder="Key name">
+                                <select id="api-key-scopes" multiple>
+                                    <option value="chat">Chat</option>
+                                    <option value="decisions">Decisions</option>
+                                    <option value="memory.read">Memory Read</option>
+                                    <option value="memory.write">Memory Write</option>
+                                    <option value="knowledge.read">Knowledge Read</option>
+                                    <option value="metrics">Metrics</option>
+                                    <option value="system">System</option>
+                                </select>
+                                <button class="btn btn-primary" id="generate-key-btn">Generate Key</button>
+                            </div>
+                            <div id="api-keys-list" class="integration-list"></div>
+                        </div>
+
+                        <div class="integration-section">
+                            <h3>External Connectors</h3>
+                            <p>Connect to Slack, Discord, Telegram, or Zapier.</p>
+                            <div class="connectors-grid">
+                                <div class="connector-card" data-service="slack">
+                                    <span class="connector-icon">💬</span>
+                                    <span class="connector-name">Slack</span>
+                                    <button class="btn btn-sm btn-secondary connect-btn">Connect</button>
+                                </div>
+                                <div class="connector-card" data-service="discord">
+                                    <span class="connector-icon">🎮</span>
+                                    <span class="connector-name">Discord</span>
+                                    <button class="btn btn-sm btn-secondary connect-btn">Connect</button>
+                                </div>
+                                <div class="connector-card" data-service="telegram">
+                                    <span class="connector-icon">📱</span>
+                                    <span class="connector-name">Telegram</span>
+                                    <button class="btn btn-sm btn-secondary connect-btn">Connect</button>
+                                </div>
+                                <div class="connector-card" data-service="zapier">
+                                    <span class="connector-icon">⚡</span>
+                                    <span class="connector-name">Zapier</span>
+                                    <button class="btn btn-sm btn-secondary connect-btn">Connect</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Training Page -->
+                <div class="page" id="page-training">
+                    <div class="training-layout">
+                        <div class="training-section">
+                            <h3>Response Feedback</h3>
+                            <p>Rate responses and provide corrections to improve the agent over time.</p>
+                            <div class="feedback-stats" id="feedback-stats">
+                                <div class="feedback-stat">
+                                    <span class="feedback-stat-value" id="total-feedback">0</span>
+                                    <span class="feedback-stat-label">Total</span>
+                                </div>
+                                <div class="feedback-stat">
+                                    <span class="feedback-stat-value" id="avg-rating">0.0</span>
+                                    <span class="feedback-stat-label">Avg Rating</span>
+                                </div>
+                                <div class="feedback-stat">
+                                    <span class="feedback-stat-value" id="corrections-count">0</span>
+                                    <span class="feedback-stat-label">Corrections</span>
+                                </div>
+                            </div>
+                            <div class="feedback-history" id="feedback-history">
+                                <div class="loading-spinner">Loading feedback...</div>
+                            </div>
+                        </div>
+
+                        <div class="training-section">
+                            <h3>Training Actions</h3>
+                            <div class="training-actions">
+                                <button class="btn btn-secondary" id="replay-session-btn">Replay Session</button>
+                                <button class="btn btn-secondary" id="adapt-btn">Run Adaptation</button>
+                                <button class="btn btn-secondary" id="export-training-btn">Export Training Data</button>
+                            </div>
+                            <div id="adaptation-results" class="adaptation-results"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Page -->
+                <div class="page" id="page-system">
+                    <div class="system-layout">
+                        <div class="system-grid">
+                            <div class="card system-info-card">
+                                <div class="card-header">
+                                    <span class="card-icon">🖥️</span>
+                                    <span class="card-title">System Information</span>
+                                </div>
+                                <div class="info-grid" id="system-info">
+                                    <div class="info-item">
+                                        <span class="info-label">Platform</span>
+                                        <span class="info-value" id="sys-platform">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Architecture</span>
+                                        <span class="info-value" id="sys-arch">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Python</span>
+                                        <span class="info-value" id="sys-python">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Uptime</span>
+                                        <span class="info-value" id="sys-uptime">--</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Processes</span>
+                                        <span class="info-value" id="sys-processes">--</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card chart-card">
+                                <div class="card-header">
+                                    <span class="card-icon">📊</span>
+                                    <span class="card-title">CPU History</span>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="cpu-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="card chart-card">
+                                <div class="card-header">
+                                    <span class="card-icon">📊</span>
+                                    <span class="card-title">Memory History</span>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="memory-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="card chart-card">
+                                <div class="card-header">
+                                    <span class="card-icon">📊</span>
+                                    <span class="card-title">Network I/O</span>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="network-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="page-settings">
+                    <div class="settings-layout">
+                        <div class="settings-section">
+                            <h3>LLM Configuration</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Base URL</label>
+                                    <input type="text" id="setting-llm-url" placeholder="http://localhost:11434/v1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Model</label>
+                                    <input type="text" id="setting-llm-model" placeholder="llama3.2">
+                                </div>
+                                <div class="form-group">
+                                    <label>Timeout (seconds)</label>
+                                    <input type="number" id="setting-llm-timeout" value="30">
+                                </div>
+                                <button class="btn btn-primary" id="test-llm-btn">Test Connection</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Server Configuration</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Host</label>
+                                    <input type="text" id="setting-host" value="0.0.0.0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Port</label>
+                                    <input type="number" id="setting-port" value="8585">
+                                </div>
+                                <div class="form-group">
+                                    <label>Log Level</label>
+                                    <select id="setting-log-level">
+                                        <option value="DEBUG">Debug</option>
+                                        <option value="INFO" selected>Info</option>
+                                        <option value="WARNING">Warning</option>
+                                        <option value="ERROR">Error</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Security</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Rate Limit (requests/minute)</label>
+                                    <input type="number" id="setting-rate-limit" value="100">
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Input Length</label>
+                                    <input type="number" id="setting-max-input" value="10000">
+                                </div>
+                                <div class="form-group">
+                                    <label>CORS Origins</label>
+                                    <input type="text" id="setting-cors" placeholder="* or specific origins">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Data Management</h3>
+                            <div class="settings-form">
+                                <button class="btn btn-secondary" id="backup-btn">Create Backup</button>
+                                <button class="btn btn-secondary" id="restore-btn">Restore from Backup</button>
+                                <button class="btn btn-danger" id="reset-btn">Reset Database</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Templates for JS -->
-    <template id="user-message-template">
-        <div class="message user-message">
-            <div class="message-avatar">&#x1F464;</div>
-            <div class="message-content">
-                <p class="message-text"></p>
+    <!-- Modal Container -->
+    <div class="modal-overlay" id="modal-overlay" style="display:none">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal</h3>
+                <button class="modal-close" id="modal-close">✕</button>
             </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-footer" id="modal-footer"></div>
         </div>
-    </template>
+    </div>
 
-    <template id="assistant-message-template">
-        <div class="message assistant-message">
-            <div class="message-avatar">&#x1F31F;</div>
-            <div class="message-content">
-                <div class="message-text"></div>
-                <div class="message-meta">
-                    <span class="confidence-badge"></span>
-                    <span class="fallback-badge" style="display:none">Rule-based</span>
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <template id="typing-template">
-        <div class="message assistant-message typing">
-            <div class="message-avatar">&#x1F31F;</div>
-            <div class="message-content">
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

@@ -1,248 +1,138 @@
-# Athena — Specialized Language Memory Agent for Sales & Trading
+# Athena Agent v2.0
 
-> Production-ready AI agent combining persistent memory, local LLM reasoning, and a web dashboard — built for sales professionals and traders.
+A comprehensive Specialized Language Memory Agent for Sales & Trading with real-time dashboard, system monitoring, integrations, and agent training capabilities.
 
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-CPU-lightgrey.svg)
-![Status](https://img.shields.io/badge/status-production-success.svg)
+## Features
 
----
+### Core Capabilities
+- **Multi-Module Agent** — Sales, Trading, and General advisory contexts
+- **Memory System** — Episodic, Semantic, and Working memory
+- **Decision Engine** — Structured decision-making with confidence scoring
+- **Knowledge Base** — Domain-specific facts and rules for sales & trading
 
-## Overview
+### New in v2.0
+- **Real-Time Web Dashboard** — Interactive SPA with live metrics, chat, memory browsing, and system monitoring
+- **System Monitoring** — CPU, RAM, Disk, Network I/O metrics with live charts
+- **Token Throughput Tracking** — Tokens/sec, latency, rolling averages
+- **Integrations System** — Webhooks, API Keys, Slack/Discord/Telegram/Zapier connectors, OAuth
+- **Agent Training** — Feedback collection, replay, and behavioral adaptation
+- **New Tools** — Calculator, Converter, Analyzer, Scheduler, Notifier
+- **Enhanced Security** — Rate limiting, audit logging, CSRF protection, CORS
 
-**Athena** is a Specialized Language Memory (SLM) Agent purpose-built for sales and trading workflows. She runs entirely on your local machine, requires no GPU, and stays efficient on 8GB RAM. Athena remembers past interactions, retrieves domain-specific knowledge, and provides confident, sourced recommendations — all through a clean web interface or REST API.
+## Quick Start
 
-### Key Features
+```bash
+# Install dependencies
+pip install -e .
 
-- **Persistent Memory System** — Episodic, semantic, and working memory stored in SQLite (WAL mode for crash safety)
-- **Local LLM Integration** — Default Ollama backend, configurable to any OpenAI-compatible endpoint
-- **Graceful Degradation** — Rule-based fallback when LLM is unavailable; agent stays functional
-- **Sales & Trading Modules** — Domain-specific reasoning for deal strategy, market analysis, risk assessment
-- **Web Dashboard** — Clean, responsive UI with real-time WebSocket updates
-- **REST API** — Full API for integration with external tools (CRUD on memory, chat, decisions)
-- **CPU-Only, RAM-Efficient** — Designed for Intel i5-class machines with 8GB RAM
+# Run the server
+python -m athena
 
----
+# Or use the CLI
+athena
+```
+
+The dashboard will be available at `http://localhost:8585`.
+
+## Dashboard Views
+
+| View | Description |
+|------|-------------|
+| Dashboard | Real-time system stats, token throughput charts |
+| Chat | Full conversation interface with module selection |
+| Memory | Browse/search episodic, semantic, working memory |
+| Decisions | View decision history with confidence tracking |
+| Knowledge | Browse and add facts/rules |
+| Integrations | Configure webhooks, API keys, external connectors |
+| Training | Submit feedback, run adaptation, replay sessions |
+| System | Real-time machine monitoring with charts |
+| Settings | LLM config, server config, security settings |
+
+## API Endpoints
+
+### Core
+- `GET /api/v1/health` — Health check
+- `POST /api/v1/chat` — Send a message
+- `POST /api/v1/decisions` — Make a decision
+- `GET /api/v1/memory/episodic` — Retrieve episodic memories
+- `GET /api/v1/memory/semantic` — Retrieve semantic memories
+- `POST /api/v1/memory/semantic` — Add knowledge
+- `DELETE /api/v1/memory/{id}` — Delete a memory
+
+### System & Metrics
+- `GET /api/v1/system/metrics` — Real-time system metrics
+- `GET /api/v1/system/info` — System information
+- `GET /api/v1/metrics/throughput` — Token throughput metrics
+- `GET /api/v1/metrics/throughput/history` — Historical throughput
+
+### Integrations
+- `GET /api/v1/integrations` — List all integrations
+- `POST /api/v1/integrations/webhooks` — Register webhook
+- `GET /api/v1/integrations/webhooks` — List webhooks
+- `POST /api/v1/integrations/api-keys` — Generate API key
+- `POST /api/v1/integrations/{service}/connect` — Connect service
+- `DELETE /api/v1/integrations/{service}` — Disconnect service
+
+### Training
+- `POST /api/v1/training/feedback` — Submit feedback
+- `GET /api/v1/training/history` — View feedback history
+- `GET /api/v1/training/stats` — Training statistics
+- `POST /api/v1/training/adapt` — Trigger adaptation
+- `POST /api/v1/training/replay/{session_id}` — Replay session
+
+## WebSocket
+
+Connect to `ws://localhost:8585/ws` for real-time updates:
+
+```json
+{"type": "chat", "payload": {"message": "Hello", "module": "general"}}
+{"type": "ping", "payload": {}}
+{"type": "health", "payload": {}}
+{"type": "get_metrics", "payload": {}}
+{"type": "get_system_metrics", "payload": {}}
+```
+
+## Configuration
+
+Environment variables (prefix: `ATHENA_`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ATHENA_HOST` | `0.0.0.0` | Server host |
+| `ATHENA_PORT` | `8585` | Server port |
+| `ATHENA_LLM_BASE_URL` | `http://localhost:11434/v1` | LLM API URL |
+| `ATHENA_LLM_MODEL` | `llama3.2` | LLM model name |
+| `ATHENA_DB_PATH` | `./data/athena.db` | Database path |
+| `ATHENA_LOG_LEVEL` | `INFO` | Logging level |
+| `ATHENA_RATE_LIMIT` | `100` | Requests per minute |
+| `ATHENA_MAX_INPUT_LENGTH` | `10000` | Max input characters |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Athena Agent                              │
-│                                                                  │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────────┐  │
-│  │  Web UI  │  │   REST API   │  │       WebSocket           │  │
-│  │ (HTML/JS)│  │  (FastAPI)   │  │    (Real-time)            │  │
-│  └────┬─────┘  └──────┬───────┘  └───────────┬───────────────┘  │
-│       │               │                       │                  │
-│  ┌────▼───────────────▼───────────────────────▼───────────────┐  │
-│  │                     Agent Core                              │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │  │
-│  │  │  Retrieval   │  │   Decision   │  │     Memory       │  │  │
-│  │  │   Engine     │  │   Engine     │  │    Manager       │  │  │
-│  │  └──────┬──────┘  └──────┬───────┘  └────────┬─────────┘  │  │
-│  └─────────┼────────────────┼───────────────────┼────────────┘  │
-│            │                │                   │                │
-│  ┌─────────▼────────────────▼───────────────────▼────────────┐  │
-│  │                      Data Layer                            │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │  │
-│  │  │  Knowledge   │  │  LLM Client  │  │   SQLite (WAL)   │  │  │
-│  │  │  Base        │  │  (Ollama)    │  │   Memory Store   │  │  │
-│  │  └─────────────┘  └──────────────┘  └──────────────────┘  │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+src/athena/
+├── core/           # Agent, Memory, Retrieval, Decision engines
+├── db/             # Database layer and migrations
+├── integrations/   # Webhooks, API Keys, Connectors, OAuth
+├── monitor/        # System monitoring and metrics
+├── training/       # Feedback, Replay, Adaptation
+├── tools/          # Calculator, Converter, Analyzer, Scheduler, Notifier
+├── server/         # FastAPI server, WebSocket, static files
+├── models/         # LLM client, configuration
+├── knowledge/      # Domain knowledge base
+└── utils/          # Security, logging utilities
 ```
 
----
-
-## Installation
-
-### Prerequisites
-
-- Python 3.11+
-- [Ollama](https://ollama.ai) installed locally (optional — agent works without it)
-- 8GB RAM minimum
-
-### Quick Start
+## Testing
 
 ```bash
-# Clone the repository
-git clone https://github.com/UnloosedApple50/athena-agent.git
-cd athena-agent
+# Run all tests with coverage
+pytest --cov=athena --cov-report=term-missing
 
-# Install dependencies
-pip install -e ".[dev]"
-
-# Configure environment
-cp .env.example .env
-# Edit .env to match your setup
-
-# Initialize the database
-python -m athena db init
-
-# Start Ollama (optional, for LLM features)
-ollama serve
-ollama pull llama3.2  # or your preferred model
-
-# Run the server
-athena run
-# or: python -m athena run
+# Run specific test module
+pytest tests/test_system.py -v
 ```
-
-The dashboard will be available at **http://localhost:8585**.
-
----
-
-## Configuration
-
-All configuration is managed via environment variables or `.env` file:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ATHENA_HOST` | `0.0.0.0` | Server bind address |
-| `ATHENA_PORT` | `8585` | Server port |
-| `ATHENA_DB_PATH` | `./data/athena.db` | SQLite database path |
-| `ATHENA_LLM_BASE_URL` | `http://localhost:11434/v1` | Ollama/OpenAI endpoint |
-| `ATHENA_LLM_MODEL` | `llama3.2` | Model name |
-| `ATHENA_LLM_TIMEOUT` | `30` | LLM timeout in seconds |
-| `ATHENA_LOG_LEVEL` | `INFO` | Logging level |
-| `ATHENA_MAX_MEMORY` | `10000` | Max episodic memories |
-| `ATHENA_WORKING_MEMORY_SIZE` | `20` | Working memory window |
-
----
-
-## API Documentation
-
-### Chat
-
-```http
-POST /api/v1/chat
-Content-Type: application/json
-
-{
-  "message": "What's the best strategy for closing enterprise deals in Q4?",
-  "module": "sales",
-  "session_id": "optional-session-id"
-}
-```
-
-Response:
-```json
-{
-  "response": "Based on historical patterns, the most effective Q4 enterprise strategy...",
-  "confidence": 0.87,
-  "module": "sales",
-  "session_id": "sess_abc123",
-  "memories_used": 5
-}
-```
-
-### Memory
-
-```http
-GET    /api/v1/memory/episodic?limit=50
-GET    /api/v1/memory/semantic?query=enterprise+sales
-POST   /api/v1/memory/semantic
-DELETE /api/v1/memory/{memory_id}
-```
-
-### Decisions
-
-```http
-POST /api/v1/decisions
-{
-  "context": "Client requesting 30% discount on $500K deal",
-  "options": ["Hold firm at 15%", "Meet at 25%", "Offer phased discount"],
-  "module": "sales"
-}
-```
-
-### Health
-
-```http
-GET /api/v1/health
-```
-
-Response:
-```json
-{
-  "status": "healthy",
-  "llm_connected": true,
-  "db_connected": true,
-  "uptime_seconds": 3600,
-  "memory_count": 1523
-}
-```
-
----
-
-## Memory Model
-
-Athena uses a three-tier memory system inspired by cognitive science:
-
-| Type | Description | Persistence |
-|------|-------------|-------------|
-| **Episodic** | Past interactions, outcomes, user feedback | Persistent (SQLite) |
-| **Semantic** | Domain facts, rules, strategies, lessons learned | Persistent (SQLite) |
-| **Working** | Current session context and reasoning state | Volatile (in-memory) |
-
-### Retrieval Strategy
-
-1. **Keyword Matching** — Fast BM25-like scoring on indexed fields
-2. **LLM Relevance** — When LLM is available, re-rank top candidates by semantic relevance
-3. **Recency Weighting** — More recent memories get higher priority
-4. **Confidence Scoring** — Each retrieval includes a confidence metric
-
-See [MEMORY_MODEL.md](docs/MEMORY_MODEL.md) for full details.
-
----
-
-## Security Considerations
-
-- All inputs are validated and sanitized via Pydantic models
-- SQL queries use parameterized statements exclusively (no string interpolation)
-- Rate limiting middleware is built-in (configurable limits)
-- No secrets or tokens are logged
-- WebSocket connections are origin-validated
-- Input length limits enforced on all endpoints
-
-See [SECURITY.md](docs/SECURITY.md) for full details.
-
----
-
-## Performance Benchmarks
-
-Tested on Intel i5-7360U, 8GB RAM, SSD:
-
-| Operation | Latency | RAM Usage |
-|-----------|---------|-----------|
-| Memory retrieval (keyword) | <10ms | ~2MB |
-| Memory retrieval (LLM rerank) | ~800ms | ~150MB |
-| Chat (with LLM) | ~2-5s | ~300MB |
-| Chat (rule-based fallback) | <50ms | ~5MB |
-| WebSocket message | <5ms | <1MB |
-| Database write | <5ms | ~1MB |
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Run `pytest --cov=athena --cov-fail-under=80`
-5. Run `ruff check .` and `mypy src/`
-6. Commit and push
-
-See [INSTALLATION.md](docs/INSTALLATION.md) for development setup.
-
----
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
-
-*Built with precision by Gabriel Garcia*
+MIT License

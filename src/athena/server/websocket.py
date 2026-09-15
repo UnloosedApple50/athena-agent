@@ -13,6 +13,8 @@ from loguru import logger
 
 from athena.core.agent import AthenaAgent, ChatResponse
 from athena.utils.logger import get_logger
+from athena.monitor.system import system_monitor
+from athena.monitor.metrics import metrics_tracker
 
 log = get_logger("websocket")
 
@@ -78,10 +80,15 @@ class WebSocketHandler:
     def __init__(self, agent: AthenaAgent, manager: ConnectionManager) -> None:
         self._agent = agent
         self._manager = manager
+        self._broadcast_task: Optional[asyncio.Task[None]] = None
 
     async def handle(self, websocket: WebSocket, connection_id: str) -> None:
         """Main WebSocket handling loop."""
         await self._manager.connect(websocket, connection_id)
+
+        # Start broadcast task if not running
+        if self._broadcast_task is None:
+            self._broadcast_task = asyncio.create_task(self._broadcast_metrics())
 
         try:
             # Send welcome message
@@ -89,7 +96,7 @@ class WebSocketHandler:
                 "type": "connected",
                 "payload": {
                     "connection_id": connection_id,
-                    "message": "Connected to Athena Agent",
+                    "message": "Connected to Athena Agent v2.0",
                     "timestamp": time.time(),
                 }
             })
@@ -113,6 +120,10 @@ class WebSocketHandler:
                     })
                 elif msg_type == "health":
                     await self._handle_health(connection_id)
+                elif msg_type == "get_metrics":
+                    await self._handle_get_metrics(connection_id)
+                elif msg_type == "get_system_metrics":
+                    await self._handle_get_system_metrics(connection_id)
                 else:
                     await self._manager.send_message(connection_id, {
                         "type": "error",
@@ -168,6 +179,51 @@ class WebSocketHandler:
                 "timestamp": time.time(),
             },
         })
+
+    async def _handle_get_metrics(self, connection_id: str) -> None:
+        """Handle token metrics request."""
+        stats = metrics_tracker.get_stats()
+        await self._manager.send_message(connection_id, {
+            "type": "metrics",
+            "payload": {
+                "total_requests": stats.total_requests,
+                "total_tokens": stats.total_prompt_tokens + stats.total_completion_tokens,
+                "avg_tokens_per_second": round(stats.avg_tokens_per_second, 2),
+                "avg_latency_ms": round(stats.avg_latency_ms, 2),
+                "rolling_avg_tps": round(stats.rolling_avg_tps, 2),
+            },
+        })
+
+    async def _handle_get_system_metrics(self, connection_id: str) -> None:
+        """Handle system metrics request."""
+        metrics = system_monitor.get_system_metrics()
+        await self._manager.send_message(connection_id, {
+            "type": "system_metrics",
+            "payload": metrics.to_dict(),
+        })
+
+    async def _broadcast_metrics(self) -> None:
+        """Periodically broadcast system metrics to all clients."""
+        while True:
+            await asyncio.sleep(5)  # Broadcast every 5 seconds
+            if self._manager.connection_count > 0:
+                try:
+                    metrics = system_monitor.get_system_metrics()
+                    throughput = metrics_tracker.get_stats()
+                    await self._manager.broadcast({
+                        "type": "realtime_metrics",
+                        "payload": {
+                            "cpu_percent": metrics.cpu.overall_percent,
+                            "memory_percent": metrics.ram.percent_used,
+                            "network_rx_bytes": metrics.network.bytes_received,
+                            "network_tx_bytes": metrics.network.bytes_sent,
+                            "tokens_per_second": throughput.rolling_avg_tps,
+                            "active_connections": self._manager.connection_count,
+                            "timestamp": time.time(),
+                        },
+                    })
+                except Exception as e:
+                    log.warning(f"Broadcast error: {e}")
 
 
 # Global connection manager
