@@ -1,186 +1,112 @@
 # Architecture
 
-## Overview
+## System Overview
 
-Athena is a Specialized Language Memory (SLM) Agent built for sales and trading professionals. It combines persistent memory, local LLM reasoning, and a clean web interface.
+Athena Agent v2.0 is a comprehensive AI agent platform with real-time monitoring, external integrations, and adaptive training capabilities.
 
-## System Components
+## Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Presentation Layer                       │
-│  ┌──────────────┐  ┌───────────────┐  ┌─────────────────┐  │
-│  │  Web UI      │  │  REST API     │  │  WebSocket      │  │
-│  │  (HTML/CSS)  │  │  (FastAPI)    │  │  (Real-time)    │  │
-│  └──────┬───────┘  └──────┬────────┘  └───────┬─────────┘  │
-└─────────┼─────────────────┼───────────────────┼────────────┘
-          │                 │                   │
-┌─────────▼─────────────────▼───────────────────▼────────────┐
-│                      Core Layer                              │
-│  ┌──────────────┐  ┌───────────────┐  ┌─────────────────┐  │
-│  │  Agent       │  │  Decision     │  │  Retrieval      │  │
-│  │  Orchestrator│  │  Engine       │  │  Engine         │  │
-│  └──────┬───────┘  └──────┬────────┘  └───────┬─────────┘  │
-│         │                 │                   │             │
-│  ┌──────▼─────────────────▼───────────────────▼──────────┐  │
-│  │                   Memory Manager                      │  │
-│  └──────┬────────────────────────────────┬──────────────┘  │
-└─────────┼────────────────────────────────┼─────────────────┘
-          │                                │
-┌─────────▼─────────────┐    ┌─────────────▼────────────────┐
-│   Data Layer          │    │   External Services          │
-│  ┌──────────────────┐ │    │  ┌────────────────────────┐  │
-│  │  SQLite (WAL)    │ │    │  │  LLM (Ollama/OpenAI)  │  │
-│  │  + Migrations    │ │    │  └────────────────────────┘  │
-│  └──────────────────┘ │    └──────────────────────────────┘
-│  ┌──────────────────┐ │
-│  │  Knowledge Base  │ │
-│  └──────────────────┘ │
-└───────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        Web Dashboard (SPA)                       │
+│  Dashboard │ Chat │ Memory │ Decisions │ Knowledge │ Training   │
+└─────────────────────────────┬────────────────────────────────────┘
+                              │ WebSocket + REST
+┌─────────────────────────────▼────────────────────────────────────┐
+│                      FastAPI Server                               │
+│  Router (/api/v1) │ WebSocket │ Static Files │ Templates          │
+└──────┬──────────────┬──────────────┬──────────────┬──────────────┘
+       │              │              │              │
+       ▼              ▼              ▼              ▼
+┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+│  System    │ │   Token    │ │Training    │ │Integrations│
+│  Monitor   │ │  Metrics   │ │  System    │ │   System   │
+└────────────┘ └────────────┘ └────────────┘ └────────────┘
+       │              │              │              │
+       └──────────────┴──────────────┴──────────────┘
+                              │
+                   ┌──────────▼──────────┐
+                   │   SQLite Database   │
+                   │  (WAL mode)         │
+                   └─────────────────────┘
 ```
 
-## Component Details
+## Modules
 
-### 1. Agent Core (`core/agent.py`)
+### Core Layer (`src/athena/core/`)
+- **agent.py** — Main orchestrator (AthenaAgent)
+- **memory.py** — Episodic, semantic, working memory management
+- **retrieval.py** — Context retrieval engine
+- **decision.py** — Decision evaluation engine
 
-The main orchestrator that:
-- Validates and sanitizes inputs
-- Delegates to retrieval and decision engines
-- Manages session lifecycle
-- Stores interactions in episodic memory
-- Tracks confidence scores
+### Integration Layer (`src/athena/integrations/`)
+- **webhooks.py** — Webhook registration and event dispatch
+- **api_keys.py** — API key lifecycle management
+- **connectors.py** — Slack, Discord, Telegram, Zapier connectors
+- **oauth.py** — OAuth flow for external services
 
-### 2. Memory System (`core/memory.py`)
+### Monitor Layer (`src/athena/monitor/`)
+- **system.py** — CPU, RAM, disk, network metrics
+- **metrics.py** — Token throughput tracking
 
-Three-tier memory inspired by cognitive science:
+### Training Layer (`src/athena/training/`)
+- **feedback.py** — User feedback collection
+- **replay.py** — Session replay functionality
+- **adaptation.py** — Behavioral adaptation engine
 
-| Type | Description | Storage |
-|------|-------------|---------|
-| **Episodic** | Full interaction history | SQLite (persistent) |
-| **Semantic** | Facts, rules, knowledge | SQLite (persistent) |
-| **Working** | Current session context | In-memory LRU |
+### Tools Layer (`src/athena/tools/`)
+- **calculator.py** — Math/financial calculations
+- **converter.py** — Unit/currency conversion
+- **analyzer.py** — Text/data analysis
+- **scheduler.py** — Task scheduling
+- **notifier.py** — Multi-channel notifications
 
-### 3. Retrieval Engine (`core/retrieval.py`)
-
-Multi-stage retrieval pipeline:
-1. **Keyword Matching** — Fast BM25-like scoring
-2. **LLM Re-ranking** — Semantic relevance (when available)
-3. **Recency Weighting** — Time-decay for older memories
-4. **Confidence Scoring** — Combined relevance metric
-
-### 4. Decision Engine (`core/decision.py`)
-
-Dual-mode decision making:
-- **LLM Mode** — Structured analysis with reasoning
-- **Rule-Based Fallback** — Pattern matching against domain rules
-
-Domain-specific rules for:
-- Sales (closing, negotiation, objection handling, prospecting)
-- Trading (risk management, technical analysis, portfolio)
-- General (finance fundamentals, communication)
-
-### 5. LLM Client (`models/llm.py`)
-
-HTTP client for OpenAI-compatible endpoints:
-- Connection pooling
-- Configurable timeouts
-- Retry with exponential backoff
-- Health checking
-- Relevance scoring capability
-
-### 6. Database Layer (`db/database.py`)
-
-SQLite with WAL (Write-Ahead Logging) mode:
-- **Crash Safety** — WAL ensures data integrity
-- **Concurrent Reads** — Multiple readers don't block writes
-- **Parameterized Queries** — All queries use parameter binding
-- **Connection Pooling** — Efficient connection management
-
-### 7. Web Server (`server/api.py`)
-
-FastAPI application with:
-- REST API for all operations
-- WebSocket for real-time communication
-- Static file serving for the dashboard
-- Pydantic validation on all endpoints
-- Automatic OpenAPI documentation
+### Server Layer (`src/athena/server/`)
+- **api.py** — FastAPI REST endpoints
+- **websocket.py** — Real-time WebSocket handler
+- **static/** — Dashboard CSS/JS
+- **templates/** — Dashboard HTML
 
 ## Data Flow
 
-### Chat Request Flow
+1. User sends message via Dashboard (WebSocket or REST)
+2. Agent processes through memory retrieval → decision → response
+3. Response stored in episodic memory, metrics recorded
+4. Real-time updates broadcast to connected clients
+5. Webhooks dispatched for configured events
 
-```
-User → WebSocket/REST → Agent.chat()
-                         │
-                    ┌────▼────┐
-                    │Sanitize │
-                    └────┬────┘
-                         │
-              ┌──────────▼──────────┐
-              │ Decision.analyze()  │
-              │  ├─ Retrieval.retrieve()
-              │  │   ├─ Keyword search
-              │  │   └─ LLM rerank
-              │  ├─ LLM generate (if available)
-              │  └─ Rule fallback
-              └──────────┬──────────┘
-                         │
-              ┌──────────▼──────────┐
-              │ Store episodic      │
-              │ memory              │
-              └──────────┬──────────┘
-                         │
-                    ┌────▼────┐
-                    │ Response│
-                    └─────────┘
-```
+## Database Schema
 
-### Memory Retrieval Flow
+| Table | Purpose |
+|-------|---------|
+| episodic_memory | Interaction history |
+| semantic_memory | Knowledge facts/rules |
+| decisions | Decision history |
+| sessions | Session tracking |
+| metrics_throughput | Token usage metrics |
+| webhooks | Webhook registrations |
+| api_keys | API key storage |
+| oauth_tokens | OAuth tokens |
+| training_feedback | User feedback |
+| scheduled_tasks | Scheduled tasks |
+| notifications | Notification history |
+| audit_log | Security audit log |
 
-```
-Query → RetrievalEngine.retrieve()
-         │
-    ┌────▼────┐
-    │Keyword  │ → Candidate set from semantic + episodic
-    │Search   │
-    └────┬────┘
-         │
-    ┌────▼────┐     ┌──────────┐
-    │LLM      │────▶│Relevance │
-    │Rerank   │◀────│Scoring   │
-    └────┬────┘     └──────────┘
-         │
-    ┌────▼────┐
-    │Sort &   │
-    │Filter   │
-    └────┬────┘
-         │
-    ┌────▼────┐
-    │Top-K    │
-    │Results  │
-    └─────────┘
-```
+## Security Model
 
-## Scalability Considerations
+- Rate limiting per client (configurable RPM)
+- API key authentication with scoped permissions
+- Input sanitization (XSS, SQL injection prevention)
+- HMAC webhook signatures
+- CSRF token generation/validation
+- CORS configuration
+- Audit logging for all operations
 
-### Current Design (Single Machine)
-- SQLite handles up to ~100K memories efficiently
-- Working memory limited to 20 entries per session
-- LLM client limited to 10 concurrent connections
-- FastAPI handles thousands of requests per second
+## Performance
 
-### Future Scaling Path
-- Replace SQLite with PostgreSQL for multi-user
-- Add Redis for distributed working memory
-- Implement true embeddings (sentence-transformers) for retrieval
-- Add Celery for async task processing
-- Containerize with Docker for deployment
-
-## Security Architecture
-
-1. **Input Validation** — Pydantic models on all endpoints
-2. **SQL Injection Prevention** — Parameterized queries only
-3. **XSS Prevention** — HTML escaping, CSP-ready
-4. **Rate Limiting** — Built-in middleware (configurable)
-5. **No Secrets in Logs** — Structured logging with filtering
-6. **WebSocket Origin Validation** — Same-origin enforcement
+- WAL mode SQLite for concurrent reads
+- Connection pooling for LLM HTTP client
+- In-memory rate limiter with cleanup
+- Efficient WebSocket broadcasting
+- Indexed database queries
+- Lightweight dashboard (no frameworks)
