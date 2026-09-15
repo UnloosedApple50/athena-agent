@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athena Agent — Sales & Trading SLM</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">&#x1F31F;</span>
+                    <span class="logo-text">Athena</span>
+                </div>
+                <p class="subtitle">Sales & Trading Agent</p>
+            </div>
+
+            <nav class="module-nav">
+                <button class="module-btn active" data-module="general">
+                    <span class="module-icon">&#x1F4C8;</span>
+                    General
+                </button>
+                <button class="module-btn" data-module="sales">
+                    <span class="module-icon">&#x1F4B0;</span>
+                    Sales
+                </button>
+                <button class="module-btn" data-module="trading">
+                    <span class="module-icon">&#x1F4CA;</span>
+                    Trading
+                </button>
+            </nav>
+
+            <div class="sidebar-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Session</span>
+                    <span class="stat-value" id="session-status">Connecting...</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">LLM Status</span>
+                    <span class="stat-value" id="llm-status">Unknown</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Memories</span>
+                    <span class="stat-value" id="memory-count">—</span>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>v1.0.0 | CPU-Only</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat Area -->
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h2 id="chat-title">General Assistant</h2>
+                    <div class="header-actions">
+                        <button class="btn-icon" id="clear-chat" title="Clear Chat">&#x2715;</button>
+                        <button class="btn-icon" id="new-session" title="New Session">&#x2795;</button>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message assistant-message">
+                        <div class="message-avatar">&#x1F31F;</div>
+                        <div class="message-content">
+                            <p>Hello! I'm <strong>Athena</strong>, your Specialized Language Memory Agent for Sales & Trading. I can help you with:</p>
+                            <ul>
+                                <li><strong>Sales Strategy</strong> — closing techniques, negotiation tactics, pipeline management</li>
+                                <li><strong>Trading Analysis</strong> — risk management, technical analysis, portfolio strategy</li>
+                                <li><strong>General Advisory</strong> — business decisions, financial concepts</li>
+                            </ul>
+                            <p>What can I help you with today?</p>
+                            <span class="confidence-badge">Ready</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <form id="chat-form">
+                        <div class="input-wrapper">
+                            <textarea
+                                id="chat-input"
+                                placeholder="Ask about sales strategies, trading analysis, or general advisory..."
+                                rows="2"
+                                autocomplete="off"
+                            ></textarea>
+                            <button type="submit" class="send-btn" id="send-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-hint">
+                            <span id="char-count">0/10000</span>
+                            <span class="module-indicator">Module: <strong id="current-module">General</strong></span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Templates for JS -->
+    <template id="user-message-template">
+        <div class="message user-message">
+            <div class="message-avatar">&#x1F464;</div>
+            <div class="message-content">
+                <p class="message-text"></p>
+            </div>
+        </div>
+    </template>
+
+    <template id="assistant-message-template">
+        <div class="message assistant-message">
+            <div class="message-avatar">&#x1F31F;</div>
+            <div class="message-content">
+                <div class="message-text"></div>
+                <div class="message-meta">
+                    <span class="confidence-badge"></span>
+                    <span class="fallback-badge" style="display:none">Rule-based</span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="typing-template">
+        <div class="message assistant-message typing">
+            <div class="message-avatar">&#x1F31F;</div>
+            <div class="message-content">
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
